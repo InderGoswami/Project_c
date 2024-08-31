@@ -11,12 +11,13 @@ void createFile(const char *filename)
     }
     printf("File created: %s\n", filename);
     fclose(file); // Closes the file after creation.
+}
     void writeFile(const char *filename, const char *content)
     {
         FILE *file = fopen(filename, "w");
         if (file == NULL)
         {
-            printf("Erro While writing to the file: %s\n ", filename);
+            printf("Error While writing to the file: %s\n ", filename);
             return;
         }
         fprintf(file, "%s", content);
@@ -51,6 +52,19 @@ void createFile(const char *filename)
             printf("Error in deleting the file :%s\n", filename);
         }
     }
+    //Simulating directory structure
+    //Defining a structure to represent a file
+    typedef struct File{
+        char file_name[50];//Name of the file
+        int file_size;
+        struct File *next;//Given file store the address of next file in same directory
+    }File;
+    typedef struct Directory{
+        char fold_name[50];//Name of directory
+        struct Directory* sub_dir;//reference to sub-directory within current directory
+        struct File* dir_file;//file in directory
+        struct Directory *next_dir;//directory next to given directory
+    }Directory;
     int main()
     {
         const char *filename = "example.txt";
@@ -60,4 +74,4 @@ void createFile(const char *filename)
         deleteFile(filename);
         return 0;
     }
-}
+
