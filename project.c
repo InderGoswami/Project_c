@@ -104,35 +104,12 @@ void createFile(const char *filename)
             add_sub_dir(root,new_dir);
         }
     }
-    //Function to print a directory structure
-    void print_dir_struct(Directory *dir,int depth){
-        if(dir==NULL)return;//basically we can visualize the directory as tree
-        for(int i=0;i<depth;i++){
-            printf(" ");
-        }
-        printf("Directory: %s\n",dir->fold_name);
-        //files in current directory
-        File *file=dir->dir_file;
-        while(file!=NULL){
-            for(int i=0;i<depth+1;i++){
-                printf(" ");
-            }
-            printf("File: %s (Size: %d bytes)\n",file->file_name,file->file_size);
-            file=file->next;
-        }
-        //print subdirectories
-       print_dir_struct(dir->sub_dir, depth + 1);
-        // Print sibling directories at the same level
-         print_dir_struct(dir->next_dir, depth);
-
-
-    }
+    
     void welcome(){
         printf("\t ***********Welcome to file manager********** \t\n");
         Directory *root=create_dir("root");
         intialize_default_dir(root);
-        print_dir_struct(root,0);
-         
+       
     }
     int main()
     {
