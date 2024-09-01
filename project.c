@@ -53,7 +53,54 @@ void createFile(const char *filename)
             printf("Error in deleting the file :%s\n", filename);
         }
     }
-    
+    //Implementing user authentication
+    typedef struct User{
+        char user_name[50];
+        char password[50];
+    }User;
+    int authenticate(const char* username,const char* password){
+        FILE* file=fopen("user_db.txt","r");
+        if(file==NULL){
+            printf("Error: Could not open user database \n");
+            return 0;
+        }
+        char stored_user[50],stored_pass[50];
+        while(fscanf(file,"%s %s",stored_user,stored_pass)!=EOF){
+            if((strcmp(username,stored_user)==0  && strcmp(password,stored_pass)==0)){
+                fclose(file);
+                return 1;//Authentication successful
+            }
+        }
+        //authentication fail
+        fclose(file);
+        return 0;
+    }
+    int login() {
+    printf("Hello User, Please login\n");
+
+    char username[50];
+    char password[50];
+
+    // Get username input
+    printf("Enter username: ");
+    fgets(username, sizeof(username), stdin);
+    username[strcspn(username, "\n")] = '\0';  // Remove newline character if present
+
+    // Get password input
+    printf("Enter password: ");
+    fgets(password, sizeof(password), stdin);
+    password[strcspn(password, "\n")] = '\0';  // Remove newline character if present
+
+    // Authentication
+    if (authenticate(username, password)) {
+        printf("Login Successful\n");
+        return 1;
+    }
+
+    printf("Login failed, please enter correct credentials\n");
+    return 0;
+}
+
     //Simulating directory structure
     //Defining a structure to represent a file
     typedef struct File{
@@ -129,15 +176,19 @@ void createFile(const char *filename)
     }
     void welcome(){
         printf("\t ***********Welcome to file manager********** \t\n");
+       
+       if(login()){
         Directory *root=create_dir("root");
         intialize_default_dir(root);
         print_dir_struct(root,0);
+       }
          
     }
     int main()
     {
-       welcome();
-       return 0;
-
+       //welcome();
+       int a;
+       scanf("%d",&a);
+       
     }
 
