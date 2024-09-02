@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include<string.h>
+
 void createFile(const char *filename)
 {                                      // Passing the filename as string
     FILE *file = fopen(filename, "w"); // This line will try to open the file with write access
@@ -53,53 +54,54 @@ void createFile(const char *filename)
             printf("Error in deleting the file :%s\n", filename);
         }
     }
-    //Implementing user authentication
-    typedef struct User{
-        char user_name[50];
-        char password[50];
-    }User;
-    int authenticate(const char* username,const char* password){
-        FILE* file=fopen("user_db.txt","r");
-        if(file==NULL){
-            printf("Error: Could not open user database \n");
-            return 0;
-        }
-        char stored_user[50],stored_pass[50];
-        while(fscanf(file,"%s %s",stored_user,stored_pass)!=EOF){
-            if((strcmp(username,stored_user)==0  && strcmp(password,stored_pass)==0)){
-                fclose(file);
-                return 1;//Authentication successful
-            }
-        }
-        //authentication fail
-        fclose(file);
-        return 0;
-    }
-    int login() {
-    printf("Hello User, Please login\n");
 
-    char username[50];
-    char password[50];
+//     //Implementing user authentication
+//     typedef struct User{
+//         char user_name[50];
+//         char password[50];
+//     }User;
+//     int authenticate(const char* username,const char* password){
+//         FILE* file=fopen("user_db.txt","r");
+//         if(file==NULL){
+//             printf("Error: Could not open user database \n");
+//             return 0;
+//         }
+//         char stored_user[50],stored_pass[50];
+//         while(fscanf(file,"%s %s",stored_user,stored_pass)!=EOF){
+//             if((strcmp(username,stored_user)==0  && strcmp(password,stored_pass)==0)){
+//                 fclose(file);
+//                 return 1;//Authentication successful
+//             }
+//         }
+//         //authentication fail
+//         fclose(file);
+//         return 0;
+//     }
+//     int login() {
+//     printf("Hello User, Please login\n");
 
-    // Get username input
-    printf("Enter username: ");
-    fgets(username, sizeof(username), stdin);
-    username[strcspn(username, "\n")] = '\0';  // Remove newline character if present
+//     char username[50];
+//     char password[50];
 
-    // Get password input
-    printf("Enter password: ");
-    fgets(password, sizeof(password), stdin);
-    password[strcspn(password, "\n")] = '\0';  // Remove newline character if present
+//     // Get username input
+//     printf("Enter username: ");
+//     fgets(username, sizeof(username), stdin);
+//     username[strcspn(username, "\n")] = '\0';  // Remove newline character if present
 
-    // Authentication
-    if (authenticate(username, password)) {
-        printf("Login Successful\n");
-        return 1;
-    }
+//     // Get password input
+//     printf("Enter password: ");
+//     fgets(password, sizeof(password), stdin);
+//     password[strcspn(password, "\n")] = '\0';  // Remove newline character if present
 
-    printf("Login failed, please enter correct credentials\n");
-    return 0;
-}
+//     // Authentication
+//     if (authenticate(username, password)) {
+//         printf("Login Successful\n");
+//         return 1;
+//     }
+
+//     printf("Login failed, please enter correct credentials\n");
+//     return 0;
+// }
 
     //Simulating directory structure
     //Defining a structure to represent a file
@@ -139,18 +141,78 @@ void createFile(const char *filename)
             //New directory added 
         }
     }
-    //Function to intialize default directories
-    void intialize_default_dir(Directory* root){
-        //default directories
-        const char* default_dir[]={"Images","Docs","More","Bluetooth","Lib","Src"};
-        //Array of pointers Each element of the array is a pointer to a string literal like "More", "src", etc.
-        int default_dir_num=sizeof(default_dir)/sizeof(default_dir[0]);
-        //creating and adding default directories to root directories
-        for(int i=0;i<default_dir_num;i++){
-            Directory* new_dir=create_dir(default_dir[i]);
-            add_sub_dir(root,new_dir);
+    void add_file(Directory *dir,const char* file_name,int file_size){
+        File *new_file=(File*)malloc(sizeof(File));
+        if(new_file==NULL){
+            printf("Memory allocation failed for file\n");
+           
+
+        }
+        strcpy(new_file->file_name,file_name);
+        new_file->file_size=file_size;
+        new_file->next=NULL;
+        if(dir->dir_file==NULL){
+            dir->dir_file=new_file;
+        }
+        else{
+            File* temp=dir->dir_file;
+            while(temp->next!=NULL){
+                temp=temp->next;
+            }
+            temp->next=new_file;//New File added
+        }
+        //Actually creating file
+        createFile(file_name);
+    }
+    void file_operations_menu(Directory *dir){
+        char command[10];
+        char filename[50];
+        char content[100];
+        while(1){
+            printf("\n Enter command (Create,Read,Write,Delete,Back)");
+            scanf("%s",command);
+            if(strcmp(command,"create")==0){
+                printf("Enter filename to create: ");
+                scanf("%s",filename);
+                printf("Enter file size: ");
+                int size;
+                scanf("%d",&size);
+                add_file(dir,filename,size);
+                // createFile(filename);
+            }
+            else if(strcmp(command,"read")==0){
+                printf("Enter the filename to read: ");
+                scanf("%s",filename);
+                readFile(filename);
+            }
+            else if(strcmp(command,"write")==0){
+                // printf("Enter filename to write: ");
+                // scanf("%s",filename);
+                printf("Enter the content to write: ");
+                scanf("%s",content);//will take input include spaces
+                writeFile(filename,content);
+            }
+            else if(strcmp(command,"back")==0){
+                break;
+            }
+            else{
+                printf("Invalid command.Try again \n");
+            }
         }
     }
+    
+    //Function to intialize default directories
+    // void intialize_default_dir(Directory* root){
+    //     //default directories
+    //     const char* default_dir[]={"Images","Docs","More","Bluetooth","Lib","Src"};
+    //     //Array of pointers Each element of the array is a pointer to a string literal like "More", "src", etc.
+    //     int default_dir_num=sizeof(default_dir)/sizeof(default_dir[0]);
+    //     //creating and adding default directories to root directories
+    //     for(int i=0;i<default_dir_num;i++){
+    //         Directory* new_dir=create_dir(default_dir[i]);
+    //         add_sub_dir(root,new_dir);
+    //     }
+    // }
     //Function to print a directory structure
     void print_dir_struct(Directory *dir,int depth){
         if(dir==NULL)return;//basically we can visualize the directory as tree
@@ -170,25 +232,59 @@ void createFile(const char *filename)
         //print subdirectories
        print_dir_struct(dir->sub_dir, depth + 1);
         // Print sibling directories at the same level
+        if(dir->next_dir==NULL){
+            printf("\n---You are in directory: %s---\n",dir->fold_name);
+            file_operations_menu(dir);//show options to perform operations
+        }
          print_dir_struct(dir->next_dir, depth);
+         
 
 
     }
-    void welcome(){
+    //Function to delete directory
+    // void del_directory(Directory* dir){
+    //     if(dir==NULL){
+    //         return;
+    //     }
+    //     File *file=dir->dir_file;
+    //     while(file!=NULL){
+    //         File *next_file=file->next;
+    //         free(file);
+    //         file=next_file;
+
+    //     }
+    //      // Free subdirectories recursively
+    //     free_directory(dir->sub_dir);
+    //     free_directory(dir->next_dir);
+    //     free(dir);
+    // }
+    /*void welcome(){
         printf("\t ***********Welcome to file manager********** \t\n");
        
        if(login()){
         Directory *root=create_dir("root");
         intialize_default_dir(root);
+        add_file_to_dir(root, "example.txt", 1024);
+        add_file_to_dir(root->sub_dir, "image.jpg", 2048);
         print_dir_struct(root,0);
+        del_directory(root);
        }
-         
-    }
+        
+    } */
     int main()
     {
-       //welcome();
-       int a;
-       scanf("%d",&a);
+        Directory *root = create_dir("root");
+
+    // Add some files and directories for testing
+    add_file(root, "example.txt", 1024);
+    Directory *images = create_dir("Images");
+    add_sub_dir(root, images);
+    add_file(images, "image.jpg", 2048);
+    Directory *docs = create_dir("Docs");
+    add_sub_dir(root, docs);
+
+    // Print the directory structure and interact with files in the last directory
+    print_dir_struct(root, 0);
        
     }
 
