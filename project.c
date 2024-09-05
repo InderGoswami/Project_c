@@ -18,6 +18,12 @@ typedef struct Directory
     struct Directory *next_dir;
 } Directory;
 
+typedef struct User
+{
+    char username[50];
+    Directory *root_dir;
+} User;
+
 // Function prototypes for file operations
 void createFile(const char *file_name);
 void writeFile(const char *filename, const char *content);
@@ -35,7 +41,8 @@ void directory_operations_menu(Directory *current_dir);
 
 // Function prototypes for authentication
 int authenticate(const char *username, const char *password);
-int login();
+int login(User *logged_in_user);
+void register_user();
 
 // File operation functions
 void createFile(const char *file_name)
@@ -109,16 +116,15 @@ void add_sub_dir(Directory *parent_dir, Directory *child_dir)
     if (parent_dir->sub_dir == NULL)
     {
         parent_dir->sub_dir = child_dir;
+        return;
     }
-    else
+
+    Directory *temp = parent_dir->sub_dir;
+    while (temp->next_dir != NULL)
     {
-        Directory *temp = parent_dir->sub_dir;
-        while (temp->next_dir != NULL)
-        {
-            temp = temp->next_dir;
-        }
-        temp->next_dir = child_dir;
+        temp = temp->next_dir;
     }
+    temp->next_dir = child_dir;
 }
 
 void add_file(Directory *dir, const char *file_name, int file_size)
@@ -211,7 +217,7 @@ void directory_operations_menu(Directory *current_dir)
     char content[100];
     while (1)
     {
-        printf("\nEnter command (CreateFile, ReadFile, WriteFile, DeleteFile, CreateDir, OpenDir, Back): ");
+        printf("\nEnter command (CreateFile, ReadFile, WriteFile, DeleteFile, CreateDir, OpenDir, DeleteDir, Back): ");
         scanf("%s", command);
 
         if (strcmp(command, "CreateFile") == 0)
@@ -270,6 +276,21 @@ void directory_operations_menu(Directory *current_dir)
                 printf("Directory not found: %s\n", filename);
             }
         }
+        else if (strcmp(command, "DeleteDir") == 0)
+        {
+            printf("Enter the sub-directory name to delete in current: ");
+            scanf("%s", filename);
+            Directory *temp = current_dir->sub_dir;
+            while (temp != NULL)
+            {
+                if (strcmp(temp->fold_name, filename) == 0)
+                {
+                    break;
+                }
+                temp = temp->next_dir;
+            }
+            del_directory(temp);
+        }
         else if (strcmp(command, "Back") == 0)
         {
             break;
@@ -303,27 +324,52 @@ int authenticate(const char *username, const char *password)
     return 0; // Authentication failed
 }
 
-int login()
+void register_user()
 {
-    printf("Hello User, Please login\n");
+    FILE *file = fopen("user_db.txt", "a");
+    if (file == NULL)
+    {
+        printf("Error: Could not open user database.\n");
+        return;
+    }
 
     char username[50];
     char password[50];
 
-    // Get username input
+    printf("Enter a username: ");
+    scanf("%s", username);
+
+    printf("Enter a password: ");
+    scanf("%s", password);
+
+    fprintf(file, "%s %s\n", username, password);
+    fclose(file);
+
+    printf("User registered successfully!\n");
+}
+
+int login(User *logged_in_user)
+{
+    char username[50];
+    char password[50];
+
     printf("Enter username: ");
-    fgets(username, sizeof(username), stdin);
-    username[strcspn(username, "\n")] = '\0'; // Remove newline character if present
+    scanf("%s", username);
 
-    // Get password input
     printf("Enter password: ");
-    fgets(password, sizeof(password), stdin);
-    password[strcspn(password, "\n")] = '\0'; // Remove newline character if present
+    scanf("%s", password);
 
-    // Authentication
     if (authenticate(username, password))
     {
         printf("Login Successful\n");
+        strcpy(logged_in_user->username, username);
+
+        // Creating a unique root directory for the user
+        logged_in_user->root_dir = create_dir(username);
+
+        // Initializing default directories under the user's root
+        initialize_default_dir(logged_in_user->root_dir);
+
         return 1;
     }
     else
@@ -333,42 +379,48 @@ int login()
     }
 }
 
-
 int main()
 {
-    // Welcome message and user login
     printf("\t *********** Welcome to File Manager *********** \t\n");
 
-    // Authenticate the user
-    if (login())
+    int choice;
+    User logged_in_user;
+
+    while (1)
     {
-        // Create the root directory
-        Directory *root = create_dir("root");
+        printf("1. Register\n2. Login\n3. Exit\nChoose an option: ");
+        scanf("%d", &choice);
 
-        // Initialize default directories under the root
-        initialize_default_dir(root);
+        if (choice == 1)
+        {
+            register_user();
+        }
+        else if (choice == 2)
+        {
+            if (login(&logged_in_user))
+            {
+                // Print the user's initial directory structure
+                printf("\nInitial Directory Structure for %s:\n", logged_in_user.username);
+                print_dir_struct(logged_in_user.root_dir, 0);
 
-        // Add some sample files and directories for testing
-        add_file(root, "example.txt", 1024);
-        Directory *images = create_dir("Images");
-        add_sub_dir(root, images);
-        add_file(images, "image.jpg", 2048);
+                // Open the directory operations menu starting from the user's root directory
+                directory_operations_menu(logged_in_user.root_dir);
 
-        // Print the directory structure
-        printf("\nInitial Directory Structure:\n");
-        print_dir_struct(root, 0);
+                // Clean up and delete the user's directory structure
+                del_directory(logged_in_user.root_dir);
 
-        // Open the directory operations menu starting from the root directory
-        directory_operations_menu(root);
-
-        // Clean up and delete the entire directory structure
-        del_directory(root);
-
-        printf("Exiting the file manager.\n");
-    }
-    else
-    {
-        printf("Exiting program due to failed login.\n");
+                printf("Exiting the file manager for user %s.\n", logged_in_user.username);
+            }
+        }
+        else if (choice == 3)
+        {
+            printf("Exiting program.\n");
+            break;
+        }
+        else
+        {
+            printf("Invalid option. Try again.\n");
+        }
     }
 
     return 0;
