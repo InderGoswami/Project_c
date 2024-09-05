@@ -77,7 +77,7 @@ void writeFile(const char *filename, const char *content)
     FILE *file = fopen(filename, "w");
     if (file == NULL)
     {
-        printf("Error While writing to the file: %s\n", filename);
+        printf("Error while writing to the file: %s\n", filename);
         return;
     }
     fprintf(file, "%s", content);
@@ -249,7 +249,7 @@ void directory_operations_menu(Directory *current_dir, const char *base_path)
             scanf("%d", &size);
             add_file(current_dir, filename, size);
 
-            // Create the file on disk
+            // Create the file on disk in the target directory
             char full_path[100];
             snprintf(full_path, sizeof(full_path), "%s/%s", base_path, filename);
             createFile(full_path);
@@ -259,19 +259,19 @@ void directory_operations_menu(Directory *current_dir, const char *base_path)
             printf("Enter the filename to read: ");
             scanf("%s", filename);
 
-            // Read the file from disk
+            // Read the file from disk in the target directory
             char full_path[100];
             snprintf(full_path, sizeof(full_path), "%s/%s", base_path, filename);
             readFile(full_path);
         }
         else if (strcmp(command, "WriteFile") == 0)
         {
-            printf("Enter the filename to write: ");
+            printf("Enter the filename to write to: ");
             scanf("%s", filename);
             printf("Enter the content to write: ");
             scanf(" %[^\n]", content); // Reads a string with spaces
 
-            // Write to the file on disk
+            // Write to the file on disk in the target directory
             char full_path[100];
             snprintf(full_path, sizeof(full_path), "%s/%s", base_path, filename);
             writeFile(full_path, content);
@@ -281,7 +281,7 @@ void directory_operations_menu(Directory *current_dir, const char *base_path)
             printf("Enter the filename to delete: ");
             scanf("%s", filename);
 
-            // Delete the file from disk
+            // Delete the file from disk in the target directory
             char full_path[100];
             snprintf(full_path, sizeof(full_path), "%s/%s", base_path, filename);
             deleteFile(full_path);
@@ -293,24 +293,34 @@ void directory_operations_menu(Directory *current_dir, const char *base_path)
             Directory *new_dir = create_dir(filename);
             add_sub_dir(current_dir, new_dir);
 
-            // Create the directory on disk
+            // Create the directory on disk in the target directory
             char full_path[100];
             snprintf(full_path, sizeof(full_path), "%s/%s", base_path, filename);
             create_directory_on_disk(full_path);
-            printf("Directory created: %s\n", filename);
         }
         else if (strcmp(command, "OpenDir") == 0)
         {
+            // Print the current directory structure
+            printf("\nCurrent Directory: %s\n", base_path);
+            print_dir_struct(current_dir, 0);
+
+            // Prompt the user to enter the name of the directory to open
             printf("Enter directory name to open: ");
             scanf("%s", filename);
+            if (strcmp(filename, "stop") == 0)
+            {
+                break;
+            }
             Directory *temp = current_dir->sub_dir;
             while (temp != NULL)
             {
                 if (strcmp(temp->fold_name, filename) == 0)
                 {
-                    // Recursively call the directory operations menu for the sub-directory
                     char full_path[100];
                     snprintf(full_path, sizeof(full_path), "%s/%s", base_path, filename);
+
+                    // Call the directory operations menu for the selected sub-directory
+                    printf("\nCurrent Directory: %s\n", full_path);
                     directory_operations_menu(temp, full_path);
                     break;
                 }
@@ -319,6 +329,45 @@ void directory_operations_menu(Directory *current_dir, const char *base_path)
             if (temp == NULL)
             {
                 printf("Directory not found.\n");
+            }
+        }
+
+        else if (strcmp(command, "DeleteDir") == 0)
+        {
+            printf("Enter the directory name to delete: ");
+            scanf("%s", filename);
+
+            // Find and delete the target directory and its contents
+            Directory *prev_dir = NULL, *temp = current_dir->sub_dir;
+            while (temp != NULL)
+            {
+                if (strcmp(temp->fold_name, filename) == 0)
+                {
+                    if (prev_dir == NULL)
+                    {
+                        current_dir->sub_dir = temp->next_dir;
+                    }
+                    else
+                    {
+                        prev_dir->next_dir = temp->next_dir;
+                    }
+                    del_directory(temp);
+                    break;
+                }
+                prev_dir = temp;
+                temp = temp->next_dir;
+            }
+
+            // Remove the directory from disk
+            char full_path[100];
+            snprintf(full_path, sizeof(full_path), "%s/%s", base_path, filename);
+            if (rmdir(full_path) == -1)
+            {
+                printf("Error: Unable to delete directory %s\n", full_path);
+            }
+            else
+            {
+                printf("Directory deleted: %s\n", full_path);
             }
         }
         else if (strcmp(command, "Back") == 0)
