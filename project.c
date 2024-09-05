@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 // Structure definitions
 typedef struct File
@@ -36,13 +38,26 @@ void print_dir_struct(Directory *dir, int depth);
 void del_directory(Directory *dir);
 void add_sub_dir(Directory *parent_dir, Directory *child_dir);
 Directory *create_dir(const char *dir_name);
-void initialize_default_dir(Directory *root);
-void directory_operations_menu(Directory *current_dir);
+void initialize_default_dir(Directory *root, const char *base_path);
+void directory_operations_menu(Directory *current_dir, const char *base_path);
 
 // Function prototypes for authentication
 int authenticate(const char *username, const char *password);
 int login(User *logged_in_user);
 void register_user();
+
+// Function to create a directory using mkdir command
+void create_directory_on_disk(const char *path)
+{
+    if (mkdir(path, 0777) == -1)
+    {
+        printf("Error: Unable to create directory %s\n", path);
+    }
+    else
+    {
+        printf("Directory created: %s\n", path);
+    }
+}
 
 // File operation functions
 void createFile(const char *file_name)
@@ -198,7 +213,7 @@ void del_directory(Directory *dir)
     free(dir);
 }
 
-void initialize_default_dir(Directory *root)
+void initialize_default_dir(Directory *root, const char *base_path)
 {
     const char *default_dir[] = {"Images", "Docs", "More", "Bluetooth", "Lib", "Src"};
     int default_dir_num = sizeof(default_dir) / sizeof(default_dir[0]);
@@ -206,11 +221,16 @@ void initialize_default_dir(Directory *root)
     {
         Directory *new_dir = create_dir(default_dir[i]);
         add_sub_dir(root, new_dir);
+
+        // Create the directory on disk
+        char full_path[100];
+        snprintf(full_path, sizeof(full_path), "%s/%s", base_path, default_dir[i]);
+        create_directory_on_disk(full_path);
     }
 }
 
 // Menu function for file and directory operations
-void directory_operations_menu(Directory *current_dir)
+void directory_operations_menu(Directory *current_dir, const char *base_path)
 {
     char command[20];
     char filename[50];
@@ -228,12 +248,21 @@ void directory_operations_menu(Directory *current_dir)
             int size;
             scanf("%d", &size);
             add_file(current_dir, filename, size);
+
+            // Create the file on disk
+            char full_path[100];
+            snprintf(full_path, sizeof(full_path), "%s/%s", base_path, filename);
+            createFile(full_path);
         }
         else if (strcmp(command, "ReadFile") == 0)
         {
             printf("Enter the filename to read: ");
             scanf("%s", filename);
-            readFile(filename);
+
+            // Read the file from disk
+            char full_path[100];
+            snprintf(full_path, sizeof(full_path), "%s/%s", base_path, filename);
+            readFile(full_path);
         }
         else if (strcmp(command, "WriteFile") == 0)
         {
@@ -241,13 +270,21 @@ void directory_operations_menu(Directory *current_dir)
             scanf("%s", filename);
             printf("Enter the content to write: ");
             scanf(" %[^\n]", content); // Reads a string with spaces
-            writeFile(filename, content);
+
+            // Write to the file on disk
+            char full_path[100];
+            snprintf(full_path, sizeof(full_path), "%s/%s", base_path, filename);
+            writeFile(full_path, content);
         }
         else if (strcmp(command, "DeleteFile") == 0)
         {
             printf("Enter the filename to delete: ");
             scanf("%s", filename);
-            deleteFile(filename);
+
+            // Delete the file from disk
+            char full_path[100];
+            snprintf(full_path, sizeof(full_path), "%s/%s", base_path, filename);
+            deleteFile(full_path);
         }
         else if (strcmp(command, "CreateDir") == 0)
         {
@@ -255,41 +292,34 @@ void directory_operations_menu(Directory *current_dir)
             scanf("%s", filename);
             Directory *new_dir = create_dir(filename);
             add_sub_dir(current_dir, new_dir);
+
+            // Create the directory on disk
+            char full_path[100];
+            snprintf(full_path, sizeof(full_path), "%s/%s", base_path, filename);
+            create_directory_on_disk(full_path);
             printf("Directory created: %s\n", filename);
         }
         else if (strcmp(command, "OpenDir") == 0)
         {
-            printf("Enter the directory name to open: ");
-            scanf("%s", filename);
-            Directory *temp = current_dir->sub_dir;
-            while (temp != NULL && strcmp(temp->fold_name, filename) != 0)
-            {
-                temp = temp->next_dir;
-            }
-            if (temp != NULL)
-            {
-                printf("Entering directory: %s\n", filename);
-                directory_operations_menu(temp);
-            }
-            else
-            {
-                printf("Directory not found: %s\n", filename);
-            }
-        }
-        else if (strcmp(command, "DeleteDir") == 0)
-        {
-            printf("Enter the sub-directory name to delete in current: ");
+            printf("Enter directory name to open: ");
             scanf("%s", filename);
             Directory *temp = current_dir->sub_dir;
             while (temp != NULL)
             {
                 if (strcmp(temp->fold_name, filename) == 0)
                 {
+                    // Recursively call the directory operations menu for the sub-directory
+                    char full_path[100];
+                    snprintf(full_path, sizeof(full_path), "%s/%s", base_path, filename);
+                    directory_operations_menu(temp, full_path);
                     break;
                 }
                 temp = temp->next_dir;
             }
-            del_directory(temp);
+            if (temp == NULL)
+            {
+                printf("Directory not found.\n");
+            }
         }
         else if (strcmp(command, "Back") == 0)
         {
@@ -297,7 +327,7 @@ void directory_operations_menu(Directory *current_dir)
         }
         else
         {
-            printf("Invalid command. Try again.\n");
+            printf("Invalid command.\n");
         }
     }
 }
@@ -311,6 +341,7 @@ int authenticate(const char *username, const char *password)
         printf("Error: Could not open user database.\n");
         return 0;
     }
+
     char stored_user[50], stored_pass[50];
     while (fscanf(file, "%s %s", stored_user, stored_pass) != EOF)
     {
@@ -345,6 +376,9 @@ void register_user()
     fprintf(file, "%s %s\n", username, password);
     fclose(file);
 
+    // Create user directory on disk
+    create_directory_on_disk(username);
+
     printf("User registered successfully!\n");
 }
 
@@ -364,11 +398,9 @@ int login(User *logged_in_user)
         printf("Login Successful\n");
         strcpy(logged_in_user->username, username);
 
-        // Creating a unique root directory for the user
+        // Create user's root directory structure in memory and on disk
         logged_in_user->root_dir = create_dir(username);
-
-        // Initializing default directories under the user's root
-        initialize_default_dir(logged_in_user->root_dir);
+        initialize_default_dir(logged_in_user->root_dir, username);
 
         return 1;
     }
@@ -404,7 +436,7 @@ int main()
                 print_dir_struct(logged_in_user.root_dir, 0);
 
                 // Open the directory operations menu starting from the user's root directory
-                directory_operations_menu(logged_in_user.root_dir);
+                directory_operations_menu(logged_in_user.root_dir, logged_in_user.username);
 
                 // Clean up and delete the user's directory structure
                 del_directory(logged_in_user.root_dir);
