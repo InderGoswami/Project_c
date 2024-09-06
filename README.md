@@ -16,6 +16,9 @@ This project implements a **File Manager** in C that allows multiple users to ma
 - **File Handling**: Core file operations are done using standard C file I/O methods.
 
 ## Concepts Used
+<br>
+
+<img src="imge.jpg">
 
 - **File Handling in C**: Basic file operations using `fopen`, `fread`, `fwrite`, and `fclose`.
 - **Data Structures**: Dynamic data structures like linked lists are used to represent directories and files.
@@ -44,4 +47,9 @@ Go to the project directory
 ```bash
   cd Project_c
 ```
+
+## Contributing
+
+We welcome collaboration and contributions to this project! If you're interested in contributing, please reach out and share how you'd like to help. Your expertise and ideas are highly valued!
+
 
