@@ -1,5 +1,7 @@
 # File Manager in C
 
+<img src="image-27.png.webp">
+
 ## Project Overview
 
 This project implements a **File Manager** in C that allows multiple users to manage their files and directories independently. The key feature is ensuring user privacy by restricting access so that one user cannot view or manage another user’s files or directories. Each user gets a private root directory, and they can perform various operations like creating, reading, writing, and deleting files, as well as managing directories. User authentication is built in to ensure secure access.
