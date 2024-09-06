@@ -3,7 +3,9 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-
+#include <unistd.h>
+#include <dirent.h>
+#include <errno.h>
 // Structure definitions
 typedef struct File
 {
@@ -34,7 +36,7 @@ void deleteFile(const char *filename);
 
 // Function prototypes for directory operations
 void add_file(Directory *dir, const char *file_name, int file_size);
-void print_dir_struct(Directory *dir, int depth);
+void print_dir_struct(const char *dir_name, int depth);
 void del_directory(Directory *dir);
 void add_sub_dir(Directory *parent_dir, Directory *child_dir);
 Directory *create_dir(const char *dir_name);
@@ -47,16 +49,25 @@ int login(User *logged_in_user);
 void register_user();
 
 // Function to create a directory using mkdir command
-void create_directory_on_disk(const char *path)
+int create_directory_on_disk(const char *dir_name)
 {
-    if (mkdir(path, 0777) == -1)
+    // Attempt to create the directory
+    if (mkdir(dir_name, 0777) == -1)
     {
-        printf("Error: Unable to create directory %s\n", path);
+        // Check if the error is because the directory already exists
+        if (errno == EEXIST)
+        {
+            // Directory already exists, no need to print an error
+            return 0;
+        }
+        else
+        {
+            // Print an error message for other errors
+            fprintf(stderr, "Error: Unable to create directory %s: %s\n", dir_name, strerror(errno));
+            return -1;
+        }
     }
-    else
-    {
-        printf("Directory created: %s\n", path);
-    }
+    return 0;
 }
 
 // File operation functions
@@ -170,29 +181,51 @@ void add_file(Directory *dir, const char *file_name, int file_size)
     createFile(file_name);
 }
 
-void print_dir_struct(Directory *dir, int depth)
+void print_dir_struct(const char *dir_name, int depth)
 {
+    DIR *dir = opendir(dir_name);
     if (dir == NULL)
+    {
+        perror("Unable to open directory");
         return;
-    for (int i = 0; i < depth; i++)
-    {
-        printf(" ");
     }
-    printf("Directory: %s\n", dir->fold_name);
 
-    File *file = dir->dir_file;
-    while (file != NULL)
+    struct dirent *entry;
+    struct stat file_stat;
+    char path[1024];
+
+    while ((entry = readdir(dir)) != NULL)
     {
-        for (int i = 0; i < depth + 1; i++)
+        // Skip the current and parent directory entries (i.e., "." and "..")
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+
+        // Print indentation for depth level
+        for (int i = 0; i < depth; i++)
         {
-            printf(" ");
+            printf("  ");
         }
-        printf("File: %s (Size: %d bytes)\n", file->file_name, file->file_size);
-        file = file->next;
+
+        // Construct the full path of the entry
+        snprintf(path, sizeof(path), "%s/%s", dir_name, entry->d_name);
+
+        // Check if the entry is a directory or a file
+        if (stat(path, &file_stat) == 0)
+        {
+            if (S_ISDIR(file_stat.st_mode))
+            {
+                printf("Directory: %s\n", entry->d_name);
+                // Recursively print the contents of the subdirectory
+                print_dir_struct(path, depth + 1);
+            }
+            else if (S_ISREG(file_stat.st_mode))
+            {
+                printf("File: %s (Size: %lld bytes)\n", entry->d_name, (long long)file_stat.st_size);
+            }
+        }
     }
 
-    print_dir_struct(dir->sub_dir, depth + 1);
-    print_dir_struct(dir->next_dir, depth);
+    closedir(dir);
 }
 
 void del_directory(Directory *dir)
@@ -201,20 +234,30 @@ void del_directory(Directory *dir)
     {
         return;
     }
+
+    // Recursively delete subdirectories
+    del_directory(dir->sub_dir);
+
+    // Recursively delete next directories at the same level
+    del_directory(dir->next_dir);
+
+    // Delete files in the current directory
     File *file = dir->dir_file;
     while (file != NULL)
     {
-        File *next_file = file->next;
-        free(file);
-        file = next_file;
+        File *temp_file = file;
+        file = file->next;
+        free(temp_file); // Free the file structure
     }
-    del_directory(dir->sub_dir);
-    del_directory(dir->next_dir);
+
+    // Free the current directory
     free(dir);
 }
-
 void initialize_default_dir(Directory *root, const char *base_path)
 {
+    // Ensure the user's base directory is created first
+    create_directory_on_disk(base_path);
+
     const char *default_dir[] = {"Images", "Docs", "More", "Bluetooth", "Lib", "Src"};
     int default_dir_num = sizeof(default_dir) / sizeof(default_dir[0]);
     for (int i = 0; i < default_dir_num; i++)
@@ -235,6 +278,7 @@ void directory_operations_menu(Directory *current_dir, const char *base_path)
     char command[20];
     char filename[50];
     char content[100];
+    
     while (1)
     {
         printf("\nEnter command (CreateFile, ReadFile, WriteFile, DeleteFile, CreateDir, OpenDir, DeleteDir, Back): ");
@@ -302,7 +346,7 @@ void directory_operations_menu(Directory *current_dir, const char *base_path)
         {
             // Print the current directory structure
             printf("\nCurrent Directory: %s\n", base_path);
-            print_dir_struct(current_dir, 0);
+            print_dir_struct(current_dir->fold_name, 0);
 
             // Prompt the user to enter the name of the directory to open
             printf("Enter directory name to open: ");
@@ -331,7 +375,6 @@ void directory_operations_menu(Directory *current_dir, const char *base_path)
                 printf("Directory not found.\n");
             }
         }
-
         else if (strcmp(command, "DeleteDir") == 0)
         {
             printf("Enter the directory name to delete: ");
@@ -372,6 +415,9 @@ void directory_operations_menu(Directory *current_dir, const char *base_path)
         }
         else if (strcmp(command, "Back") == 0)
         {
+            // Print the updated directory structure before going back
+            printf("\nUpdated Directory: %s\n", base_path);
+            print_dir_struct(current_dir->fold_name, 0);
             break;
         }
         else
@@ -380,6 +426,8 @@ void directory_operations_menu(Directory *current_dir, const char *base_path)
         }
     }
 }
+
+
 
 // Authentication functions
 int authenticate(const char *username, const char *password)
@@ -403,10 +451,33 @@ int authenticate(const char *username, const char *password)
     fclose(file);
     return 0; // Authentication failed
 }
+int is_username_taken(const char *username)
+{
+    FILE *file = fopen("user_db.txt", "r");
+    if (file == NULL)
+    {
+        return 0; // If the file doesn't exist, no usernames are taken
+    }
+
+    char existing_username[50];
+    char existing_password[50];
+
+    while (fscanf(file, "%s %s", existing_username, existing_password) != EOF)
+    {
+        if (strcmp(existing_username, username) == 0)
+        {
+            fclose(file);
+            return 1; // Username is already taken
+        }
+    }
+
+    fclose(file);
+    return 0; // Username is not taken
+}
 
 void register_user()
 {
-    FILE *file = fopen("user_db.txt", "a");
+    FILE *file = fopen("user_db.txt", "a+"); // Open in a+ mode to allow both reading and appending
     if (file == NULL)
     {
         printf("Error: Could not open user database.\n");
@@ -419,9 +490,18 @@ void register_user()
     printf("Enter a username: ");
     scanf("%s", username);
 
+    // Check if username is already taken
+    if (is_username_taken(username))
+    {
+        printf("Error: Username is already taken. Please choose a different username.\n");
+        fclose(file);
+        return;
+    }
+
     printf("Enter a password: ");
     scanf("%s", password);
 
+    // Register the new user
     fprintf(file, "%s %s\n", username, password);
     fclose(file);
 
@@ -430,7 +510,77 @@ void register_user()
 
     printf("User registered successfully!\n");
 }
+void delete_user()
+{
+    char username[50];
+    char password[50];
+    char existing_username[50];
+    char existing_password[50];
+    int user_found = 0;
 
+    // Prompt user for credentials
+    printf("Enter your username: ");
+    scanf("%s", username);
+
+    printf("Enter your password: ");
+    scanf("%s", password);
+
+    // Open the user database file in read mode
+    FILE *file = fopen("user_db.txt", "r");
+    if (file == NULL)
+    {
+        printf("Error: Could not open user database.\n");
+        return;
+    }
+
+    // Temporary file to store remaining users
+    FILE *temp_file = fopen("temp_user_db.txt", "w");
+    if (temp_file == NULL)
+    {
+        printf("Error: Could not create temporary file.\n");
+        fclose(file);
+        return;
+    }
+
+    // Read the database line by line
+    while (fscanf(file, "%s %s", existing_username, existing_password) != EOF)
+    {
+        // Check if the entered credentials match
+        if (strcmp(existing_username, username) == 0 && strcmp(existing_password, password) == 0)
+        {
+            user_found = 1;
+            // User matched, don't write this user to the temporary file
+            printf("User %s has been deleted successfully.\n", username);
+        }
+        else
+        {
+            // Write non-matching users to the temporary file
+            fprintf(temp_file, "%s %s\n", existing_username, existing_password);
+        }
+    }
+
+    fclose(file);
+    fclose(temp_file);
+
+    // If the user was found and deleted, replace the old database file with the new one
+    if (user_found)
+    {
+        remove("user_db.txt");
+        rename("temp_user_db.txt", "user_db.txt");
+
+        // Optionally, delete the user's directory
+        char command[100];
+        snprintf(command, sizeof(command), "rm -rf %s", username);
+        system(command);
+        printf("User directory %s deleted.\n", username);
+    }
+    else
+    {
+        // If user not found, delete the temporary file
+        remove("temp_user_db.txt");
+        printf("Error: Username or password is incorrect.\n");
+    }
+}
 int login(User *logged_in_user)
 {
     char username[50];
@@ -462,14 +612,23 @@ int login(User *logged_in_user)
 
 int main()
 {
-    printf("\t *********** Welcome to File Manager *********** \t\n");
+    // ANSI escape codes for colors
+    const char *RED_COLOR = "\033[1;31m";
+    const char *YELLOW_COLOR = "\033[1;33m";
+    const char *RESET_COLOR = "\033[0m";
+
+    printf("\n");
+    printf("%s\t*************************************************\n", YELLOW_COLOR);
+    printf("%s\t***********   WELCOME TO FILE MANAGER   *********\n", RED_COLOR);
+    printf("%s\t*************************************************\n", YELLOW_COLOR);
+    printf("\n");
 
     int choice;
     User logged_in_user;
 
     while (1)
     {
-        printf("1. Register\n2. Login\n3. Exit\nChoose an option: ");
+        printf("1. Register\n2. Login\n3. Exit\nChoose an option (1-3): ");
         scanf("%d", &choice);
 
         if (choice == 1)
@@ -480,17 +639,39 @@ int main()
         {
             if (login(&logged_in_user))
             {
-                // Print the user's initial directory structure
-                printf("\nInitial Directory Structure for %s:\n", logged_in_user.username);
-                print_dir_struct(logged_in_user.root_dir, 0);
+                while (1)
+                {
+                    // After logging in, provide options for the logged-in user
+                    printf("\nWelcome, %s!\n", logged_in_user.username);
+                    printf("1. View Directory Structure\n2. Delete Account\n3. Logout\nChoose an option (1-3): ");
+                    scanf("%d", &choice);
 
-                // Open the directory operations menu starting from the user's root directory
-                directory_operations_menu(logged_in_user.root_dir, logged_in_user.username);
+                    if (choice == 1)
+                    {
+                        // Print the user's initial directory structure
+                        printf("\nInitial Directory Structure for %s:\n", logged_in_user.username);
+                        print_dir_struct(logged_in_user.username, 0);
 
-                // Clean up and delete the user's directory structure
-                del_directory(logged_in_user.root_dir);
-
-                printf("Exiting the file manager for user %s.\n", logged_in_user.username);
+                        // Open the directory operations menu starting from the user's root directory
+                        directory_operations_menu(logged_in_user.root_dir, logged_in_user.username);
+                    }
+                    else if (choice == 2)
+                    {
+                        // Delete the user from the database and their directory
+                        delete_user();
+                        printf("Exiting the file manager after deleting the user.\n");
+                        return 0; // Exit the program after deleting the user
+                    }
+                    else if (choice == 3)
+                    {
+                        printf("Logging out...\n");
+                        break; // Break out of the logged-in menu and return to the main menu
+                    }
+                    else
+                    {
+                        printf("Invalid option. Try again.\n");
+                    }
+                }
             }
         }
         else if (choice == 3)
@@ -503,6 +684,8 @@ int main()
             printf("Invalid option. Try again.\n");
         }
     }
+    // Reset color back to default
+    printf("%s", RESET_COLOR);
 
     return 0;
 }
