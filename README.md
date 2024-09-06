@@ -32,5 +32,14 @@ Each user is given a root directory that comes with default subdirectories:
 - `Src`
 
 Users can create additional files and directories within this structure.
+## How to run this project
+```bash
+  git clone https://github.com/InderGoswami/Project_c.git
+```
 
+Go to the project directory
+
+```bash
+  cd Project_c
+```
 
